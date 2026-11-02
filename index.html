@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบแดชบอร์ดข้อมูลผู้ป่วยเข้ารับการบำบัดรักษา | Google Sheets Analytics</title>
+  <meta name="description" content="ระบบสารสนเทศวิเคราะห์และประมวลผลข้อมูลผู้ป่วยเข้ารับการบำบัดรักษายาเสพติด เชื่อมโยง Google Sheets แบบ Real-time">
+
+  <!-- Google Fonts: Prompt & Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'Sarabun', 'sans-serif'],
+            sarabun: ['Sarabun', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+              950: '#042f2e',
+            },
+            accent: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js & Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PapaParse for high-performance CSV Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Prompt', 'Sarabun', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .dark .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.5);
+    }
+    @keyframes pulse-slow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.85; }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 3s infinite ease-in-out;
+    }
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      .glass-card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        background: white !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
+
+  <!-- Ambient Glow Background -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-brand-500/15 dark:bg-brand-500/10 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/3 -right-40 w-96 h-96 bg-blue-500/15 dark:bg-blue-600/10 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-40 left-1/3 w-96 h-96 bg-purple-500/10 dark:bg-purple-600/10 rounded-full blur-3xl"></div>
+  </div>
+
+  <!-- Header / Navigation Bar -->
+  <header class="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/25">
+            <i data-lucide="activity" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="text-base sm:text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                ระบบวิเคราะห์ข้อมูลผู้ป่วยเข้ารับการบำบัด
+              </h1>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                จ.ศรีสะเกษ
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+              สถิติการบำบัดรักษาฟื้นฟู & ชุมชนเป้าหมาย (พ.ศ. 2565 - 2568)
+            </p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center space-x-2 sm:space-x-3 no-print">
+          <!-- Live Auto-Sync Switch -->
+          <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs shadow-sm">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="autoSyncToggle" class="sr-only peer" checked>
+              <div class="w-7 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+            <span class="text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold" id="autoSyncLabel">
+              ซิงค์สดอัตโนมัติ (8 วิ)
+            </span>
+          </div>
+
+          <!-- Open Live Google Sheet Button -->
+          <button id="btnOpenExternalSheet" title="เปิดไฟล์ Google Sheet ในแท็บใหม่เพื่อแก้ไข" class="px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1.5 transition-all shadow-sm">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">เปิด Google Sheet เพื่อแก้ไข</span>
+          </button>
+
+          <!-- Sync Live Button -->
+          <button id="btnQuickSync" title="ดึงข้อมูลล่าสุดจาก Google Sheets" class="p-2 sm:px-3 sm:py-2 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center space-x-1.5 transition-all shadow-sm">
+            <i data-lucide="refresh-cw" id="syncIcon" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">ดึงข้อมูลใหม่</span>
+          </button>
+
+          <!-- Sheet Connect Settings Modal Trigger -->
+          <button id="btnOpenSheetModal" class="px-3 py-2 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-500/20 flex items-center space-x-1.5 transition-all">
+            <i data-lucide="sheet" class="w-4 h-4"></i>
+            <span>ตั้งค่า Sheet</span>
+          </button>
+
+          <!-- Print / Export Button -->
+          <button id="btnPrint" title="พิมพ์รายงาน หรือ บันทึกเป็น PDF" class="p-2 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button id="themeToggle" title="สลับโหมด มืด/สว่าง" class="p-2 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all">
+            <i data-lucide="moon" id="themeIcon" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Filters & Controls Bar -->
+    <section class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm no-print">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Year Filter -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-500"></i> เลือกปี พ.ศ.
+          </label>
+          <div class="relative">
+            <select id="yearFilter" class="w-full bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none transition-all">
+              <option value="2568" selected>พ.ศ. 2568 (ปีล่าสุด)</option>
+              <option value="ALL">ทุกปี (ภาพรวม 4 ปีสะสม 2565 - 2568)</option>
+              <option value="2567">พ.ศ. 2567</option>
+              <option value="2566">พ.ศ. 2566</option>
+              <option value="2565">พ.ศ. 2565</option>
+            </select>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <!-- District Search -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-brand-500"></i> ค้นหาอำเภอ
+          </label>
+          <div class="relative">
+            <input type="text" id="districtSearch" placeholder="พิมพ์ชื่ออำเภอ เช่น กันทรลักษ์, ขุขันธ์..." class="w-full bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          </div>
+        </div>
+
+        <!-- Sort Option -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-brand-500"></i> เรียงลำดับข้อมูล
+          </label>
+          <div class="relative">
+            <select id="sortFilter" class="w-full bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none transition-all">
+              <option value="patients_desc">ผู้ป่วยเข้ารับบำบัด (มากไปน้อย)</option>
+              <option value="patients_asc">ผู้ป่วยเข้ารับบำบัด (น้อยไปมาก)</option>
+              <option value="community_desc">หมู่บ้าน/ชุมชน (มากไปน้อย)</option>
+              <option value="district_asc">ชื่ออำเภอ (ก - ฮ)</option>
+            </select>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <!-- Quick Summary / Reset -->
+        <div class="flex items-end space-x-2">
+          <button id="btnResetFilters" class="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium py-2 px-3 rounded-xl text-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center space-x-2 transition-all">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            <span>รีเซ็ตตัวกรอง</span>
+          </button>
+          <button id="btnExportCSV" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-3 rounded-xl text-sm shadow-sm flex items-center justify-center space-x-2 transition-all">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>ดาวน์โหลด CSV</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Metric Cards Grid -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <!-- Card 1: Total Patients -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-rose-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ผู้ป่วยเข้ารับบำบัดรวม</p>
+            <h3 id="statTotalPatients" class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+              0
+            </h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-inner">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-xs text-slate-500 dark:text-slate-400">
+          <span id="statPatientsTrend" class="inline-flex items-center text-rose-600 dark:text-rose-400 font-semibold mr-1.5">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 mr-0.5"></i> +0%
+          </span>
+          <span id="statPatientsContext">เทียบกับปีที่ผ่านมา</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Total Communities -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-brand-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">หมู่บ้าน/ชุมชนเป้าหมาย</p>
+            <h3 id="statTotalCommunities" class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+              0
+            </h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 flex items-center justify-center shadow-inner">
+            <i data-lucide="home" class="w-6 h-6"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-xs text-slate-500 dark:text-slate-400">
+          <span class="inline-flex items-center text-brand-600 dark:text-brand-400 font-semibold mr-1.5">
+            <i data-lucide="check-circle" class="w-3.5 h-3.5 mr-0.5"></i> ครอบคลุม
+          </span>
+          <span id="statCommunitiesContext">ในพื้นที่ที่รายงานข้อมูล</span>
+        </div>
+      </div>
+
+      <!-- Card 3: Average Patients per Community -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-blue-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">เฉลี่ยต่อหมู่บ้าน/ชุมชน</p>
+            <h3 id="statAvgPerCommunity" class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+              0.0
+            </h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
+            <i data-lucide="calculator" class="w-6 h-6"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-xs text-slate-500 dark:text-slate-400">
+          <span class="text-blue-600 dark:text-blue-400 font-semibold mr-1">คน/ชุมชน</span>
+          <span>อัตราความหนาแน่นของผู้ป่วย</span>
+        </div>
+      </div>
+
+      <!-- Card 4: Top Affected District -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-amber-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">อำเภอที่พบผู้ป่วยสูงสุด</p>
+            <h3 id="statTopDistrict" class="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 truncate max-w-[170px]">
+              -
+            </h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-inner">
+            <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-xs text-slate-500 dark:text-slate-400">
+          <span id="statTopDistrictPatients" class="text-amber-600 dark:text-amber-400 font-semibold mr-1">0 คน</span>
+          <span>ในชุดข้อมูลที่เลือก</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Charts Section -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Chart 1: Yearly Trend (Span 2 columns on desktop) -->
+      <div class="lg:col-span-2 glass-card rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <i data-lucide="line-chart" class="w-4 h-4 text-brand-500"></i> แนวโน้มสถิติรายปี (พ.ศ. 2565 - 2568)
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">เปรียบเทียบจำนวนผู้ป่วยเข้ารับบำบัด และหมู่บ้าน/ชุมชนเป้าหมาย</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 font-medium">
+              <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span> ผู้ป่วย (คน)
+            </span>
+            <span class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> ชุมชน (แห่ง)
+            </span>
+          </div>
+        </div>
+        <div class="relative h-72 sm:h-80 w-full">
+          <canvas id="yearlyTrendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Top 5 Districts Share (Donut Chart) -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm">
+        <div class="mb-4">
+          <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-brand-500"></i> สัดส่วน 5 อำเภอสูงสุด
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">สัดส่วนผู้ป่วยเข้ารับการบำบัดตามอำเภอ</p>
+        </div>
+        <div class="relative h-64 sm:h-72 w-full flex items-center justify-center">
+          <canvas id="districtShareChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: District Comparison Bar Chart (Full Width) -->
+      <div class="lg:col-span-3 glass-card rounded-2xl p-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-500"></i> สถิติเปรียบเทียบรายอำเภอ
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">เรียงตามปริมาณผู้ป่วยเข้ารับการบำบัดรักษาในแต่ละอำเภอ</p>
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+            แสดงผล <span id="barChartCount" class="font-bold text-brand-600 dark:text-brand-400">0</span> อำเภอ
+          </div>
+        </div>
+        <div class="relative h-80 sm:h-96 w-full">
+          <canvas id="districtBarChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Table Section -->
+    <section class="glass-card rounded-2xl shadow-sm overflow-hidden">
+      <!-- Table Header & Tools -->
+      <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <i data-lucide="table" class="w-4 h-4 text-brand-500"></i> ตารางแจกแจงและแก้ไขข้อมูล
+            </h2>
+            <span id="editModeIndicator" class="hidden text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 animate-pulse">
+              ✏️ กำลังอยู่ในโหมดแก้ไข
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">คุณสามารถเปิดโหมดแก้ไขเพื่อปรับปรุงตัวเลข เพิ่ม หรือลบข้อมูล และบันทึกกลับลง Google Sheet ได้</p>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="flex flex-wrap items-center gap-2 no-print">
+          <!-- Toggle Edit Mode Button -->
+          <button id="btnToggleEditMode" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-sm flex items-center space-x-1.5 transition-all">
+            <i data-lucide="edit-3" id="editBtnIcon" class="w-3.5 h-3.5"></i>
+            <span id="editBtnText">เปิดโหมดแก้ไขข้อมูล</span>
+          </button>
+
+          <!-- Add Row Button (Visible in Edit Mode) -->
+          <button id="btnAddRow" class="hidden px-3 py-1.5 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-sm flex items-center space-x-1.5 transition-all">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+            <span>เพิ่มแถวใหม่</span>
+          </button>
+
+          <!-- Save to Google Sheet Button -->
+          <button id="btnSaveToGoogleSheet" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center space-x-1.5 transition-all" title="บันทึกข้อมูลกลับไปยัง Google Sheet">
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+            <span>บันทึกลง Google Sheet</span>
+          </button>
+
+          <!-- Copy All to Clipboard -->
+          <button id="btnCopyForSheet" class="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center space-x-1.5 transition-all" title="คัดลอกข้อมูลทั้งหมดเพื่อนำไปวาง (Ctrl+V) ใน Google Sheet ได้ทันที">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">คัดลอกไปวางใน Sheet</span>
+          </button>
+
+          <!-- Page Size -->
+          <div class="flex items-center space-x-1 text-xs text-slate-500 pl-2 border-l border-slate-200 dark:border-slate-700">
+            <span>แสดง:</span>
+            <select id="pageSizeSelect" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="9999">ทั้งหมด</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Responsive Table -->
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+          <thead class="bg-slate-100/75 dark:bg-slate-800/60 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
+            <tr>
+              <th scope="col" class="py-3 px-4 sm:px-6">ลำดับ</th>
+              <th scope="col" class="py-3 px-4 sm:px-6">ปี พ.ศ.</th>
+              <th scope="col" class="py-3 px-4 sm:px-6">อำเภอ</th>
+              <th scope="col" class="py-3 px-4 sm:px-6 text-right">หมู่บ้าน/ชุมชน</th>
+              <th scope="col" class="py-3 px-4 sm:px-6 text-right">ผู้ป่วยเข้ารับบำบัด (คน)</th>
+              <th scope="col" class="py-3 px-4 sm:px-6 text-right">เฉลี่ยต่อชุมชน</th>
+              <th scope="col" class="py-3 px-4 sm:px-6 text-center">ระดับความหนาแน่น</th>
+              <th scope="col" id="colActionHeader" class="hidden py-3 px-4 sm:px-6 text-center">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="dataTableBody" class="divide-y divide-slate-200 dark:divide-slate-800/80">
+            <!-- Dynamic rows will be rendered here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer / Pagination -->
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <div id="tableInfo">
+          กำลังแสดงรายการ 0 - 0 จากทั้งหมด 0 รายการ
+        </div>
+        <div class="flex items-center space-x-1" id="paginationControls">
+          <!-- Dynamic pagination buttons -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Google Sheets Integration Guide Card -->
+    <section class="glass-card rounded-2xl p-5 shadow-sm no-print border-l-4 border-l-brand-500">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-start space-x-3">
+          <div class="p-2.5 rounded-xl bg-brand-100 dark:bg-brand-950/70 text-brand-600 dark:text-brand-400 shrink-0">
+            <i data-lucide="info" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white">
+              วิธีการเชื่อมต่อและดึงข้อมูลสดจาก Google Sheet ของคุณ
+            </h3>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+              คุณสามารถแก้ไขข้อมูลบน Google Sheet แล้วให้หน้านี้อัปเดตแบบอัตโนมัติได้ง่ายๆ เพียง:
+              <br class="hidden sm:inline">
+              1. เปิดไฟล์ Google Sheet ของคุณ &rarr; เมนู <span class="font-semibold text-brand-600 dark:text-brand-400">ไฟล์ (File)</span> &rarr; <span class="font-semibold text-brand-600 dark:text-brand-400">แชร์ (Share)</span> &rarr; <span class="font-semibold text-brand-600 dark:text-brand-400">เผยแพร่ไปยังเว็บ (Publish to web)</span>
+              <br class="hidden sm:inline">
+              2. เลือกรูปแบบเป็น <span class="font-semibold text-brand-600 dark:text-brand-400">ค่าที่คั่นด้วยจุลภาค (.csv)</span> แล้วกดเผยแพร่
+              <br class="hidden sm:inline">
+              3. นำลิงก์ที่ได้มากรอกในปุ่ม "Google Sheets" ด้านบน ระบบจะดึงข้อมูลมาประมวลผลทันที
+            </p>
+          </div>
+        </div>
+        <button id="btnOpenGuideModal" class="shrink-0 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center space-x-1.5">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+          <span>ตั้งค่าเชื่อมต่อ Sheet</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-12 py-6 border-t border-slate-200/80 dark:border-slate-800/80 text-center text-xs text-slate-500 dark:text-slate-400 no-print">
+    <div class="max-w-7xl mx-auto px-4">
+      <p>ระบบแดชบอร์ดประมวลผลข้อมูลสารสนเทศสุขภาพและสถิติบำบัดรักษา &copy; 2568 | ข้อมูลตัวอย่าง จ.ศรีสะเกษ</p>
+      <p class="mt-1 text-[11px] text-slate-400 dark:text-slate-500">รองรับการซิงค์ข้อมูลสดจาก Google Sheets, CSV, และ Next.js Integration</p>
+    </div>
+  </footer>
+
+  <!-- ==================== MODAL: Google Sheet Settings ==================== -->
+  <div id="sheetModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden p-4">
+    <div class="glass-card w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden transform transition-all max-h-[90vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <i data-lucide="sheet" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-white">เชื่อมต่อ Google Sheets (อ่าน & บันทึกแก้ไข)</h3>
+            <p class="text-[11px] text-slate-500">รองรับการดึงข้อมูลสด และส่งข้อมูลที่แก้ไขกลับไปบันทึกลง Sheet</p>
+          </div>
+        </div>
+        <button id="btnCloseModal" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Tabs -->
+      <div class="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 px-6 text-xs font-semibold">
+        <button id="tabBtnRead" class="py-2.5 px-4 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5">
+          <i data-lucide="cloud-download" class="w-3.5 h-3.5"></i>
+          <span>1. ดึงข้อมูลจาก Sheet (Read)</span>
+        </button>
+        <button id="tabBtnWrite" class="py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5">
+          <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+          <span>2. บันทึกข้อมูลกลับลง Sheet (Write-back)</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+        <!-- TAB 1: READ / SYNC -->
+        <div id="tabContentRead" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Google Sheets CSV URL / Published URL:
+            </label>
+            <input type="url" id="inputSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 font-mono transition-all">
+            <p class="text-[11px] text-slate-500 mt-1">
+              * ไปที่ Google Sheet &rarr; ไฟล์ (File) &rarr; แชร์ (Share) &rarr; เผยแพร่ไปยังเว็บ (Publish to web) &rarr; เลือก CSV
+            </p>
+          </div>
+
+          <!-- Or Paste Raw CSV -->
+          <details class="text-xs text-slate-600 dark:text-slate-400">
+            <summary class="cursor-pointer font-medium text-brand-600 dark:text-brand-400 hover:underline">
+              หรือต้องการวางข้อมูลดิบ (Paste CSV) โดยตรง
+            </summary>
+            <div class="mt-2">
+              <textarea id="rawCsvTextarea" rows="4" placeholder="ปี,อำเภอ,หมู่บ้าน/ชุมชน,ผู้ป่วยเข้ารับบำบัด..." class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"></textarea>
+            </div>
+          </details>
+        </div>
+
+        <!-- TAB 2: WRITE / APPS SCRIPT -->
+        <div id="tabContentWrite" class="space-y-4 hidden">
+          <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3.5 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+            <div class="font-bold flex items-center gap-1.5 mb-1">
+              <i data-lucide="zap" class="w-4 h-4 text-amber-600"></i> วิธีตั้งค่าให้ Google Sheet รับบันทึกข้อมูลอัตโนมัติ (ทำครั้งเดียว):
+            </div>
+            1. ใน Google Sheet ของคุณ &rarr; กดเมนู <b>ส่วนขยาย (Extensions)</b> &rarr; <b>Apps Script</b><br>
+            2. ลบโค้ดเดิมทั้งหมด แล้ววางโค้ดด้านล่างนี้<br>
+            3. กด <b>ทำให้ใช้งานได้ (Deploy)</b> &rarr; <b>การทำให้ใช้งานได้รายการใหม่ (New Deployment)</b> &rarr; เลือกประเภท <b>เว็บแอป (Web app)</b><br>
+            4. ตรงช่อง <i>"ผู้มีสิทธิ์เข้าถึง"</i> ให้เลือกเป็น <b>"ทุกคน (Anyone)"</b> แล้วกด Deploy &rarr; คัดลอก Web App URL มาใส่ช่องข้างล่าง
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                โค้ด Google Apps Script (คลิกปุ่มเพื่อก๊อปปี้):
+              </label>
+              <button id="btnCopyScriptCode" class="text-xs text-brand-600 hover:underline font-medium flex items-center gap-1">
+                <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i> คัดลอกโค้ด
+              </button>
+            </div>
+            <pre class="bg-slate-900 text-slate-200 p-3 rounded-xl text-[11px] font-mono overflow-x-auto max-h-36 custom-scrollbar select-all" id="scriptCodeBlock">function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  sheet.clearContents();
+  sheet.appendRow(["ปี", "อำเภอ", "หมู่บ้าน/ชุมชน", "ผู้ป่วยเข้ารับบำบัด"]);
+  data.forEach(function(row) {
+    sheet.appendRow([row.year, row.district, Number(row.community), Number(row.patients)]);
+  });
+  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Google Apps Script Web App URL:
+            </label>
+            <input type="url" id="inputAppsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 font-mono transition-all">
+          </div>
+        </div>
+
+        <!-- Status / Error message inside modal -->
+        <div id="modalAlert" class="hidden p-3 rounded-xl text-xs flex items-center space-x-2"></div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <button id="btnRestoreDefault" class="text-xs font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 underline">
+          คืนค่าข้อมูลตั้งต้น (ศรีสะเกษ 2565-2568)
+        </button>
+        <div class="flex items-center space-x-2">
+          <button id="btnCancelModal" class="px-4 py-2 text-xs font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all">
+            ยกเลิก
+          </button>
+          <button id="btnSaveAndFetch" class="px-4 py-2 text-xs font-medium rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-500/20 transition-all flex items-center space-x-1.5">
+            <i data-lucide="cloud-download" class="w-4 h-4"></i>
+            <span>บันทึกและซิงค์ทันที</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Embedded Default Data & Application Logic -->
+  <script>
+    // Embedded Default CSV Data (Provided by User)
+    const DEFAULT_CSV_DATA = `ปี,อำเภอ,หมู่บ้าน/ชุมชน,ผู้ป่วยเข้ารับบำบัด
+2565,ปรางค์กู่,1,0
+2565,เมืองศรีสะเกษ,3,17
+2565,อุทุมพรพิสัย,1,10
+2565,กันทรลักษ์,4,60
+2565,กันทรารมย์,1,14
+2565,ขุนหาญ,3,8
+2565,ราษีไศล,1,1
+2565,ไพรบึง,1,16
+2565,ขุขันธ์,3,40
+2565,โนนคูณ,1,3
+2565,ภูสิงห์,1,18
+2565,ศรีรัตนะ,2,29
+2565,พยุห์,1,13
+2565,ยางชุมน้อย,1,5
+2565,วังหิน,1,9
+2565,ศิลาลาด,1,6
+2565,เบญจลักษ์,1,4
+2565,เมืองจันทร์,1,9
+2565,โพธิ์ศรีสุวรรณ,1,6
+2565,บึงบูรพ์,1,7
+2565,ห้วยทับทัน,1,3
+2565,น้ำเกลี้ยง,1,4
+2566,กันทรลักษ์,3,115
+2566,กันทรารมย์,1,25
+2566,ขุขันธ์,3,64
+2566,ขุนหาญ,2,43
+2566,ศรีรัตนะ,1,29
+2566,น้ำเกลี้ยง,1,33
+2566,บึงบูรพ์,1,17
+2566,ปรางค์กู่,1,43
+2566,ภูสิงห์,1,43
+2566,เมืองศรีสะเกษ,2,60
+2566,ห้วยทับทัน,1,20
+2566,อุทุมพรพิสัย,1,57
+2566,โนนคูณ,1,18
+2566,ไพรบึง,1,21
+2567,กันทรลักษ์,6,140
+2567,กันทรารมย์,1,26
+2567,ขุขันธ์,3,68
+2567,ขุนหาญ,3,62
+2567,ศรีรัตนะ,2,41
+2567,น้ำเกลี้ยง,1,20
+2567,บึงบูรพ์,1,15
+2567,ปรางค์กู่,1,41
+2567,พยุห์,1,17
+2567,ภูสิงห์,1,21
+2567,ยางชุมน้อย,1,20
+2567,ราษีไศล,1,16
+2567,วังหิน,1,30
+2567,ศิลาลาด,1,23
+2567,เมืองศรีสะเกษ,3,56
+2567,ห้วยทับทัน,1,18
+2567,อุทุมพรพิสัย,2,32
+2567,เบญจลักษ์,1,16
+2567,เมืองจันทร์,1,16
+2567,โนนคูณ,1,16
+2567,โพธิ์ศรีสุวรรณ,1,17
+2567,ไพรบึง,1,32
+2568,ปรางค์กู่,2,69
+2568,เมืองศรีสะเกษ,6,120
+2568,อุทุมพรพิสัย,2,58
+2568,กันทรลักษ์,8,161
+2568,กันทรารมย์,2,51
+2568,ขุนหาญ,6,111
+2568,ราษีไศล,2,51
+2568,ไพรบึง,2,44
+2568,ขุขันธ์,6,94
+2568,โนนคูณ,2,38
+2568,ภูสิงห์,2,37
+2568,ศรีรัตนะ,4,63
+2568,พยุห์,2,32
+2568,ยางชุมน้อย,2,32
+2568,วังหิน,2,30
+2568,ศิลาลาด,2,30
+2568,เบญจลักษ์,2,30
+2568,เมืองจันทร์,2,30
+2568,โพธิ์ศรีสุวรรณ,2,30
+2568,บึงบูรพ์,2,29
+2568,ห้วยทับทัน,2,27
+2568,น้ำเกลี้ยง,2,26`;
+
+    // Global State
+    let rawDataset = [];
+    let filteredDataset = [];
+    let currentPage = 1;
+    let pageSize = 25;
+    let chartInstances = {};
+
+    // Local Storage Keys
+    const LS_KEY_SHEET_URL = 'sisaket_sheet_url';
+    const LS_KEY_CACHED_CSV = 'sisaket_cached_csv';
+    const LS_KEY_THEME = 'sisaket_theme';
+
+    // Initialize Lucide Icons
+    function refreshIcons() {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    // Parse CSV to structured array
+    function parseCSVData(csvText) {
+      const results = Papa.parse(csvText.trim(), {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true
+      });
+
+      // Normalize columns
+      return results.data.map(row => {
+        // Detect column names flexibility
+        const year = row['ปี'] || row['year'] || row['Year'] || row['พ.ศ.'] || '';
+        const district = (row['อำเภอ'] || row['district'] || row['District'] || '').toString().trim();
+        const community = parseInt(row['หมู่บ้าน/ชุมชน'] || row['หมู่บ้าน'] || row['ชุมชน'] || row['community'] || 0, 10) || 0;
+        const patients = parseInt(row['ผู้ป่วยเข้ารับบำบัด'] || row['ผู้ป่วย'] || row['patients'] || row['จำนวนผู้ป่วย'] || 0, 10) || 0;
+
+        return {
+          year: year.toString().trim(),
+          district,
+          community,
+          patients,
+          ratio: community > 0 ? (patients / community).toFixed(1) : 0
+        };
+      }).filter(item => item.district !== '');
+    }
+
+    // Format Number with Commas
+    function formatNumber(num) {
+      return new Intl.NumberFormat('th-TH').format(num);
+    }
+
+    // User's Connected Google Sheet URL
+    const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1l0KVQLzetYyeYGtB_5cqESXaioECAbbgzIUyxqB2oD8/edit?gid=1642483215#gid=1642483215';
+
+    // Global Auto-Sync Timer
+    let autoSyncTimer = null;
+
+    // Convert any Google Sheets link to Edit URL
+    function getGoogleSheetEditUrl(url) {
+      if (!url) return DEFAULT_SHEET_URL;
+      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && match[1]) {
+        const gidMatch = url.match(/gid=([0-9]+)/);
+        const gidHash = gidMatch ? `?gid=${gidMatch[1]}#gid=${gidMatch[1]}` : '';
+        return `https://docs.google.com/spreadsheets/d/${match[1]}/edit${gidHash}`;
+      }
+      return url;
+    }
+
+    // Convert standard Google Sheets share link to CSV download URL (with gid support)
+    function formatGoogleSheetUrl(url) {
+      if (!url) return '';
+      // If already a pub?output=csv
+      if (url.includes('pub?output=csv')) {
+        return url;
+      }
+      // Extract Sheet ID and gid
+      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && match[1]) {
+        const sheetId = match[1];
+        const gidMatch = url.match(/gid=([0-9]+)/);
+        const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '';
+        return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidParam}`;
+      }
+      return url;
+    }
+
+    // Direct Google Visualization JSONP Fetcher (100% Zero-CORS, Real-time fresh data)
+    function fetchViaGvizJSONP(sheetUrl) {
+      return new Promise((resolve, reject) => {
+        const match = sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (!match || !match[1]) return reject(new Error('Invalid Google Sheet URL'));
+        const sheetId = match[1];
+        const gidMatch = sheetUrl.match(/gid=([0-9]+)/);
+        const gid = gidMatch ? gidMatch[1] : '0';
+
+        window.google = window.google || {};
+        window.google.visualization = window.google.visualization || {};
+        window.google.visualization.Query = window.google.visualization.Query || {};
+
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error('GViz JSONP timeout'));
+        }, 10000);
+
+        window.google.visualization.Query.setResponse = function(response) {
+          cleanup();
+          try {
+            if (!response || response.status !== 'ok' || !response.table) {
+              throw new Error('Google Sheet response error');
+            }
+            const rows = response.table.rows;
+            const parsed = [];
+            rows.forEach(r => {
+              const c = r.c;
+              if (!c || c.length < 4) return;
+              const year = (c[0] && (c[0].f || c[0].v !== undefined ? c[0].v : '')).toString().trim();
+              const district = (c[1] && (c[1].f || c[1].v !== undefined ? c[1].v : '')).toString().trim();
+              const community = parseInt(c[2] ? (c[2].v || 0) : 0, 10);
+              const patients = parseInt(c[3] ? (c[3].v || 0) : 0, 10);
+              if (district && district !== 'อำเภอ' && year && year !== 'ปี') {
+                parsed.push({
+                  year,
+                  district,
+                  community,
+                  patients,
+                  ratio: community > 0 ? (patients / community).toFixed(1) : 0
+                });
+              }
+            });
+            resolve(parsed);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        const script = document.createElement('script');
+        script.id = 'gviz_sheet_script';
+        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&tqx=reqId:0&_nocache=${Date.now()}`;
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('Script load failed'));
+        };
+
+        function cleanup() {
+          clearTimeout(timeout);
+          const oldScript = document.getElementById('gviz_sheet_script');
+          if (oldScript && oldScript.parentNode) oldScript.parentNode.removeChild(oldScript);
+        }
+
+        document.head.appendChild(script);
+      });
+    }
+
+    // Fetch data from Google Sheet with JSONP and CORS fallbacks
+    async function fetchGoogleSheetData(sheetUrl, isSilent = false) {
+      const btnIcon = document.getElementById('syncIcon');
+      if (btnIcon) btnIcon.classList.add('animate-spin');
+
+      try {
+        // Method 1: Google Visualization JSONP (Best: No CORS, Always fresh)
+        let dataset = null;
+        try {
+          dataset = await fetchViaGvizJSONP(sheetUrl);
+        } catch (gvizErr) {
+          console.warn('GViz JSONP failed, trying CSV export fetch...', gvizErr);
+        }
+
+        // Method 2: CSV Fetch Fallback
+        if (!dataset || dataset.length === 0) {
+          const targetUrl = formatGoogleSheetUrl(sheetUrl);
+          let csvText = null;
+          try {
+            const response = await fetch(targetUrl);
+            if (response.ok) csvText = await response.text();
+          } catch (e) {}
+
+          if (!csvText) {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            const proxyRes = await fetch(proxyUrl);
+            if (proxyRes.ok) csvText = await proxyRes.text();
+          }
+
+          if (csvText && csvText.trim().length > 0) {
+            dataset = parseCSVData(csvText);
+          }
+        }
+
+        if (!dataset || dataset.length === 0) {
+          throw new Error('ไม่พบข้อมูลใน Google Sheet หรือรูปแบบตารางไม่ตรง');
+        }
+
+        // Detect changes between old and new dataset
+        const oldHash = JSON.stringify(rawDataset);
+        const newHash = JSON.stringify(dataset);
+        const isDataChanged = (oldHash !== newHash);
+
+        rawDataset = dataset;
+        localStorage.setItem(LS_KEY_SHEET_URL, sheetUrl);
+        saveCurrentDatasetToCache();
+
+        if (isDataChanged) {
+          updateSyncStatusBadge(true, `อัปเดตข้อมูลสดตาม Google Sheet แล้ว (${rawDataset.length} รายการ)`);
+          showLiveToast(`ตรวจพบข้อมูลใหม่ใน Google Sheet! อัปเดตหน้าจอทันที`);
+          applyFilters();
+        } else {
+          updateSyncStatusBadge(true, `ข้อมูลตรงกับ Google Sheet ล่าสุดแล้ว (${rawDataset.length} รายการ)`);
+          if (!isSilent) {
+            showLiveToast(`ข้อมูลปัจจุบันตรงกับ Google Sheet เรียบร้อยแล้ว`);
+            triggerConfetti();
+            applyFilters();
+          }
+        }
+
+        return true;
+      } catch (err) {
+        console.warn('Failed to sync Google Sheet:', err);
+        if (!isSilent) {
+          updateSyncStatusBadge(false, 'ดึงข้อมูลไม่สำเร็จ');
+          alert('ไม่สามารถดึงข้อมูลได้: ' + err.message);
+        }
+        return false;
+      } finally {
+        if (btnIcon) btnIcon.classList.remove('animate-spin');
+      }
+    }
+
+    function triggerConfetti() {
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.8 }
+        });
+      } catch (e) {}
+    }
+
+    function showLiveToast(msg) {
+      const toast = document.getElementById('liveSyncToast');
+      const text = document.getElementById('toastMessage');
+      if (toast && text) {
+        text.textContent = msg;
+        toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+        toast.classList.add('translate-y-0', 'opacity-100');
+        setTimeout(() => {
+          toast.classList.remove('translate-y-0', 'opacity-100');
+          toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+        }, 4000);
+      }
+    }
+
+    function updateSyncStatusBadge(isOnline, text) {
+      const badge = document.getElementById('statusBadge');
+      const label = document.getElementById('syncStatusText');
+      if (label) {
+        label.textContent = text || (isOnline ? 'เชื่อมต่อ Google Sheet แล้ว' : 'ใช้ข้อมูลออฟไลน์');
+      }
+    }
+
+    // Filter & Sort Logic
+    function applyFilters() {
+      const selectedYear = document.getElementById('yearFilter').value;
+      const searchQuery = document.getElementById('districtSearch').value.trim().toLowerCase();
+      const sortOption = document.getElementById('sortFilter').value;
+
+      filteredDataset = rawDataset.filter(item => {
+        const matchYear = (selectedYear === 'ALL') || (item.year === selectedYear);
+        const matchDistrict = !searchQuery || item.district.toLowerCase().includes(searchQuery);
+        return matchYear && matchDistrict;
+      });
+
+      // Sorting
+      filteredDataset.sort((a, b) => {
+        if (sortOption === 'patients_desc') return b.patients - a.patients;
+        if (sortOption === 'patients_asc') return a.patients - b.patients;
+        if (sortOption === 'community_desc') return b.community - a.community;
+        if (sortOption === 'district_asc') return a.district.localeCompare(b.district, 'th');
+        return 0;
+      });
+
+      currentPage = 1;
+      updateUI();
+    }
+
+    // Update All UI Elements
+    function updateUI() {
+      updateKPICards();
+      renderCharts();
+      renderDataTable();
+      refreshIcons();
+    }
+
+    // Update KPI Cards
+    function updateKPICards() {
+      const totalPatients = filteredDataset.reduce((sum, d) => sum + d.patients, 0);
+      const totalCommunities = filteredDataset.reduce((sum, d) => sum + d.community, 0);
+      const avgRatio = totalCommunities > 0 ? (totalPatients / totalCommunities).toFixed(1) : '0.0';
+
+      // Find top district
+      let topDistrict = '-';
+      let topDistrictPatients = 0;
+
+      // Group by district to handle cases where multiple years are selected
+      const districtTotals = {};
+      filteredDataset.forEach(d => {
+        districtTotals[d.district] = (districtTotals[d.district] || 0) + d.patients;
+      });
+
+      let maxVal = -1;
+      for (const [dist, count] of Object.entries(districtTotals)) {
+        if (count > maxVal) {
+          maxVal = count;
+          topDistrict = dist;
+          topDistrictPatients = count;
+        }
+      }
+
+      document.getElementById('statTotalPatients').textContent = formatNumber(totalPatients);
+      document.getElementById('statTotalCommunities').textContent = formatNumber(totalCommunities);
+      document.getElementById('statAvgPerCommunity').textContent = avgRatio;
+      document.getElementById('statTopDistrict').textContent = topDistrict;
+      document.getElementById('statTopDistrictPatients').textContent = `${formatNumber(topDistrictPatients)} คน`;
+
+      // Year Trend Context
+      const selectedYear = document.getElementById('yearFilter').value;
+      const trendEl = document.getElementById('statPatientsTrend');
+      const contextEl = document.getElementById('statPatientsContext');
+      
+      if (selectedYear === 'ALL') {
+        trendEl.innerHTML = `<i data-lucide="layers" class="w-3.5 h-3.5 mr-0.5"></i> รวม 4 ปี`;
+        trendEl.className = 'inline-flex items-center text-teal-600 dark:text-teal-400 font-semibold mr-1.5';
+        contextEl.textContent = 'ยอดรวมสะสม 2565-2568';
+      } else {
+        const currYearInt = parseInt(selectedYear, 10);
+        const prevYearStr = (currYearInt - 1).toString();
+        const currYearTotal = rawDataset.filter(d => d.year === selectedYear).reduce((s, d) => s + d.patients, 0);
+        const prevYearTotal = rawDataset.filter(d => d.year === prevYearStr).reduce((s, d) => s + d.patients, 0);
+
+        if (prevYearTotal > 0) {
+          const diffPct = (((currYearTotal - prevYearTotal) / prevYearTotal) * 100).toFixed(1);
+          const isUp = diffPct >= 0;
+          trendEl.innerHTML = `<i data-lucide="${isUp ? 'trending-up' : 'trending-down'}" class="w-3.5 h-3.5 mr-0.5"></i> ${isUp ? '+' : ''}${diffPct}%`;
+          trendEl.className = `inline-flex items-center ${isUp ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'} font-semibold mr-1.5`;
+          contextEl.textContent = `เทียบกับปี พ.ศ. ${prevYearStr}`;
+        } else {
+          trendEl.innerHTML = `<i data-lucide="info" class="w-3.5 h-3.5 mr-0.5"></i> ปีแรก`;
+          trendEl.className = 'inline-flex items-center text-slate-500 font-semibold mr-1.5';
+          contextEl.textContent = 'ไม่มีข้อมูลปีก่อนหน้า';
+        }
+      }
+    }
+
+    // Chart.js Default Theme Settings
+    function getChartTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      return {
+        textColor: isDark ? '#94a3b8' : '#475569',
+        gridColor: isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.8)',
+        tooltipBg: isDark ? '#0f172a' : '#ffffff',
+        tooltipText: isDark ? '#f8fafc' : '#0f172a',
+        borderColor: isDark ? '#334155' : '#cbd5e1'
+      };
+    }
+
+    // Render Charts
+    function renderCharts() {
+      const theme = getChartTheme();
+
+      // 1. Yearly Trend Chart
+      const yearlySummary = {};
+      const allYears = ['2565', '2566', '2567', '2568'];
+      allYears.forEach(y => {
+        yearlySummary[y] = { patients: 0, communities: 0 };
+      });
+
+      rawDataset.forEach(d => {
+        if (yearlySummary[d.year]) {
+          yearlySummary[d.year].patients += d.patients;
+          yearlySummary[d.year].communities += d.community;
+        }
+      });
+
+      const trendCtx = document.getElementById('yearlyTrendChart').getContext('2d');
+      if (chartInstances.yearlyTrend) chartInstances.yearlyTrend.destroy();
+
+      chartInstances.yearlyTrend = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+          labels: allYears.map(y => `ปี พ.ศ. ${y}`),
+          datasets: [
+            {
+              label: 'ผู้ป่วยเข้ารับบำบัด (คน)',
+              data: allYears.map(y => yearlySummary[y].patients),
+              borderColor: '#14b8a6',
+              backgroundColor: 'rgba(20, 184, 166, 0.15)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#14b8a6',
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              yAxisID: 'y'
+            },
+            {
+              label: 'หมู่บ้าน/ชุมชน (แห่ง)',
+              data: allYears.map(y => yearlySummary[y].communities),
+              borderColor: '#3b82f6',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              tension: 0.4,
+              pointBackgroundColor: '#3b82f6',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: theme.tooltipBg,
+              titleColor: theme.tooltipText,
+              bodyColor: theme.tooltipText,
+              borderColor: theme.borderColor,
+              borderWidth: 1,
+              padding: 12,
+              boxPadding: 6,
+              usePointStyle: true,
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.dataset.label}: ${formatNumber(context.raw)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: theme.gridColor },
+              ticks: { color: theme.textColor, font: { family: 'Prompt' } }
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              grid: { color: theme.gridColor },
+              ticks: { color: theme.textColor, font: { family: 'Prompt' } },
+              title: { display: true, text: 'ผู้ป่วย (คน)', color: theme.textColor, font: { size: 11, family: 'Prompt' } }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              grid: { drawOnChartArea: false },
+              ticks: { color: theme.textColor, font: { family: 'Prompt' } },
+              title: { display: true, text: 'ชุมชน (แห่ง)', color: theme.textColor, font: { size: 11, family: 'Prompt' } }
+            }
+          }
+        }
+      });
+
+      // 2. Top 5 Districts Donut Chart
+      const districtAggregation = {};
+      filteredDataset.forEach(d => {
+        districtAggregation[d.district] = (districtAggregation[d.district] || 0) + d.patients;
+      });
+
+      const sortedDistricts = Object.entries(districtAggregation)
+        .sort((a, b) => b[1] - a[1]);
+
+      const top5 = sortedDistricts.slice(0, 5);
+      const othersTotal = sortedDistricts.slice(5).reduce((sum, item) => sum + item[1], 0);
+
+      const donutLabels = top5.map(item => item[0]);
+      const donutData = top5.map(item => item[1]);
+      if (othersTotal > 0) {
+        donutLabels.push('อำเภออื่นๆ');
+        donutData.push(othersTotal);
+      }
+
+      const donutCtx = document.getElementById('districtShareChart').getContext('2d');
+      if (chartInstances.districtShare) chartInstances.districtShare.destroy();
+
+      chartInstances.districtShare = new Chart(donutCtx, {
+        type: 'doughnut',
+        data: {
+          labels: donutLabels,
+          datasets: [{
+            data: donutData,
+            backgroundColor: [
+              '#14b8a6', // Teal
+              '#3b82f6', // Blue
+              '#8b5cf6', // Violet
+              '#f59e0b', // Amber
+              '#ec4899', // Pink
+              '#64748b'  // Slate
+            ],
+            borderWidth: 2,
+            borderColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: theme.textColor,
+                font: { family: 'Prompt', size: 11 },
+                boxWidth: 12,
+                padding: 10
+              }
+            },
+            tooltip: {
+              backgroundColor: theme.tooltipBg,
+              titleColor: theme.tooltipText,
+              bodyColor: theme.tooltipText,
+              borderColor: theme.borderColor,
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                label: function(context) {
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = ((context.raw / total) * 100).toFixed(1);
+                  return ` ${context.label}: ${formatNumber(context.raw)} คน (${pct}%)`;
+                }
+              }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+
+      // 3. District Comparison Bar Chart
+      // Take top 15 districts for optimal readability
+      const barDistricts = sortedDistricts.slice(0, 15);
+      document.getElementById('barChartCount').textContent = barDistricts.length;
+
+      const barCtx = document.getElementById('districtBarChart').getContext('2d');
+      if (chartInstances.districtBar) chartInstances.districtBar.destroy();
+
+      chartInstances.districtBar = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: barDistricts.map(item => item[0]),
+          datasets: [{
+            label: 'จำนวนผู้ป่วยเข้ารับบำบัด (คน)',
+            data: barDistricts.map(item => item[1]),
+            backgroundColor: 'rgba(20, 184, 166, 0.85)',
+            hoverBackgroundColor: '#0d9488',
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: theme.tooltipBg,
+              titleColor: theme.tooltipText,
+              bodyColor: theme.tooltipText,
+              borderColor: theme.borderColor,
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return ` ผู้ป่วย: ${formatNumber(context.raw)} คน`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: theme.textColor,
+                font: { family: 'Prompt', size: 11 },
+                maxRotation: 45,
+                minRotation: 25
+              }
+            },
+            y: {
+              grid: { color: theme.gridColor },
+              ticks: { color: theme.textColor, font: { family: 'Prompt' } }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Data Table
+    function renderDataTable() {
+      const tbody = document.getElementById('dataTableBody');
+      tbody.innerHTML = '';
+
+      const totalItems = filteredDataset.length;
+      const startIdx = (currentPage - 1) * pageSize;
+      const endIdx = pageSize === 9999 ? totalItems : Math.min(startIdx + pageSize, totalItems);
+      const pageData = filteredDataset.slice(startIdx, endIdx);
+
+      if (pageData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="${isEditMode ? 8 : 7}" class="py-12 text-center text-slate-400 dark:text-slate-500">
+              <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+              <p class="text-sm">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>
+            </td>
+          </tr>
+        `;
+        document.getElementById('tableInfo').textContent = `ไม่พบรายการข้อมูล`;
+        document.getElementById('paginationControls').innerHTML = '';
+        return;
+      }
+
+      pageData.forEach((row, i) => {
+        const itemNumber = startIdx + i + 1;
+        // Find index in rawDataset for updating
+        const rawIndex = rawDataset.findIndex(r => r === row || (r.year === row.year && r.district === row.district && r.patients === row.patients && r.community === row.community));
+        
+        // Severity Badge based on patients
+        let badgeHtml = '';
+        if (row.patients >= 100) {
+          badgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+            วิกฤตสูง (&ge;100)
+          </span>`;
+        } else if (row.patients >= 40) {
+          badgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            ปานกลาง (&ge;40)
+          </span>`;
+        } else {
+          badgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            เฝ้าระวังปกติ
+          </span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors';
+        
+        if (isEditMode) {
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 text-slate-400 font-mono text-xs">${itemNumber}</td>
+            <td class="py-2 px-3">
+              <input type="text" value="${row.year}" onchange="updateCellData(${rawIndex}, 'year', this.value)" class="w-20 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </td>
+            <td class="py-2 px-3">
+              <input type="text" value="${row.district}" onchange="updateCellData(${rawIndex}, 'district', this.value)" class="w-36 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-900 dark:text-white font-semibold focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </td>
+            <td class="py-2 px-3 text-right">
+              <input type="number" min="0" value="${row.community}" onchange="updateCellData(${rawIndex}, 'community', this.value)" class="w-20 text-right bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </td>
+            <td class="py-2 px-3 text-right">
+              <input type="number" min="0" value="${row.patients}" onchange="updateCellData(${rawIndex}, 'patients', this.value)" class="w-24 text-right bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </td>
+            <td class="py-2.5 px-3 text-right font-mono text-slate-500 dark:text-slate-400">${row.ratio}</td>
+            <td class="py-2.5 px-3 text-center">${badgeHtml}</td>
+            <td class="py-2 px-3 text-center">
+              <button onclick="deleteRowData(${rawIndex})" class="p-1 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-all" title="ลบแถวนี้">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </td>
+          `;
+        } else {
+          tr.innerHTML = `
+            <td class="py-3.5 px-4 sm:px-6 text-slate-400 font-mono text-xs">${itemNumber}</td>
+            <td class="py-3.5 px-4 sm:px-6 font-medium text-slate-800 dark:text-slate-200">${row.year}</td>
+            <td class="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-brand-500/70"></i>
+              ${row.district}
+            </td>
+            <td class="py-3.5 px-4 sm:px-6 text-right font-mono text-slate-600 dark:text-slate-300">${formatNumber(row.community)}</td>
+            <td class="py-3.5 px-4 sm:px-6 text-right font-bold font-mono text-slate-900 dark:text-white">${formatNumber(row.patients)}</td>
+            <td class="py-3.5 px-4 sm:px-6 text-right font-mono text-slate-500 dark:text-slate-400">${row.ratio}</td>
+            <td class="py-3.5 px-4 sm:px-6 text-center">${badgeHtml}</td>
+          `;
+        }
+        tbody.appendChild(tr);
+      });
+
+      // Update Pagination Text
+      document.getElementById('tableInfo').textContent = 
+        `กำลังแสดง ${formatNumber(startIdx + 1)} - ${formatNumber(endIdx)} จากทั้งหมด ${formatNumber(totalItems)} รายการ`;
+
+      // Build Pagination Buttons
+      buildPaginationControls(totalItems);
+    }
+
+    // Build Pagination Controls
+    function buildPaginationControls(totalItems) {
+      const container = document.getElementById('paginationControls');
+      container.innerHTML = '';
+
+      if (pageSize === 9999) return;
+      const totalPages = Math.ceil(totalItems / pageSize);
+      if (totalPages <= 1) return;
+
+      // Prev Button
+      const prevBtn = document.createElement('button');
+      prevBtn.className = `p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 ${currentPage === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`;
+      prevBtn.innerHTML = '<i data-lucide="chevron-left" class="w-4 h-4"></i>';
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderDataTable(); refreshIcons(); } };
+      container.appendChild(prevBtn);
+
+      // Page indicators
+      for (let p = 1; p <= totalPages; p++) {
+        if (totalPages > 7 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) {
+          if (p === 2 || p === totalPages - 1) {
+            const dots = document.createElement('span');
+            dots.className = 'px-1 text-slate-400';
+            dots.textContent = '...';
+            container.appendChild(dots);
+          }
+          continue;
+        }
+
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+          p === currentPage
+            ? 'bg-brand-600 text-white font-bold shadow-sm'
+            : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+        }`;
+        pageBtn.textContent = p;
+        pageBtn.onclick = () => { currentPage = p; renderDataTable(); refreshIcons(); };
+        container.appendChild(pageBtn);
+      }
+
+      // Next Button
+      const nextBtn = document.createElement('button');
+      nextBtn.className = `p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 ${currentPage === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`;
+      nextBtn.innerHTML = '<i data-lucide="chevron-right" class="w-4 h-4"></i>';
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderDataTable(); refreshIcons(); } };
+      container.appendChild(nextBtn);
+    }
+
+    // Update Single Cell Data
+    function updateCellData(rawIdx, field, val) {
+      if (rawIdx < 0 || rawIdx >= rawDataset.length) return;
+      if (field === 'community' || field === 'patients') {
+        rawDataset[rawIdx][field] = Math.max(0, parseInt(val, 10) || 0);
+      } else {
+        rawDataset[rawIdx][field] = val.trim();
+      }
+      
+      // Recalculate ratio
+      const comm = rawDataset[rawIdx].community;
+      const pts = rawDataset[rawIdx].patients;
+      rawDataset[rawIdx].ratio = comm > 0 ? (pts / comm).toFixed(1) : 0;
+
+      // Save to cache
+      saveCurrentDatasetToCache();
+
+      // Refresh KPIs and Charts immediately
+      updateKPICards();
+      renderCharts();
+    }
+
+    // Delete Row
+    function deleteRowData(rawIdx) {
+      if (rawIdx < 0 || rawIdx >= rawDataset.length) return;
+      const row = rawDataset[rawIdx];
+      if (confirm(`คุณต้องการลบข้อมูล "${row.district} (${row.year})" ใช่หรือไม่?`)) {
+        rawDataset.splice(rawIdx, 1);
+        saveCurrentDatasetToCache();
+        applyFilters();
+      }
+    }
+
+    // Add New Row
+    function addNewRowData() {
+      const selectedYear = document.getElementById('yearFilter').value;
+      const yearToUse = selectedYear !== 'ALL' ? selectedYear : '2568';
+      
+      const newRecord = {
+        year: yearToUse,
+        district: 'อำเภอใหม่',
+        community: 1,
+        patients: 10,
+        ratio: 10.0
+      };
+
+      rawDataset.unshift(newRecord);
+      saveCurrentDatasetToCache();
+      applyFilters();
+      triggerConfetti();
+    }
+
+    // Save Current Dataset to Cache
+    function saveCurrentDatasetToCache() {
+      const csv = Papa.unparse(rawDataset.map(d => ({
+        'ปี': d.year,
+        'อำเภอ': d.district,
+        'หมู่บ้าน/ชุมชน': d.community,
+        'ผู้ป่วยเข้ารับบำบัด': d.patients
+      })));
+      localStorage.setItem(LS_KEY_CACHED_CSV, csv);
+    }
+
+    // Toggle Edit Mode
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      const btn = document.getElementById('btnToggleEditMode');
+      const btnText = document.getElementById('editBtnText');
+      const btnIcon = document.getElementById('editBtnIcon');
+      const indicator = document.getElementById('editModeIndicator');
+      const addBtn = document.getElementById('btnAddRow');
+      const colAction = document.getElementById('colActionHeader');
+
+      if (isEditMode) {
+        btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center space-x-1.5 transition-all';
+        btnText.textContent = 'เสร็จสิ้นการแก้ไข';
+        btnIcon.setAttribute('data-lucide', 'check');
+        indicator.classList.remove('hidden');
+        addBtn.classList.remove('hidden');
+        colAction.classList.remove('hidden');
+      } else {
+        btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-sm flex items-center space-x-1.5 transition-all';
+        btnText.textContent = 'เปิดโหมดแก้ไขข้อมูล';
+        btnIcon.setAttribute('data-lucide', 'edit-3');
+        indicator.classList.add('hidden');
+        addBtn.classList.add('hidden');
+        colAction.classList.add('hidden');
+        saveCurrentDatasetToCache();
+      }
+      renderDataTable();
+      refreshIcons();
+    }
+
+    // Export Filtered Data to CSV
+    function exportToCSV() {
+      const csv = Papa.unparse(filteredDataset.map(d => ({
+        'ปี': d.year,
+        'อำเภอ': d.district,
+        'หมู่บ้าน/ชุมชน': d.community,
+        'ผู้ป่วยเข้ารับบำบัด': d.patients,
+        'เฉลี่ยต่อชุมชน': d.ratio
+      })));
+
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `สถิติผู้ป่วยบำบัด_ศรีสะเกษ_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Copy formatted table for Google Sheet (TSV format)
+    function copyForGoogleSheet() {
+      let tsv = "ปี\tอำเภอ\tหมู่บ้าน/ชุมชน\tผู้ป่วยเข้ารับบำบัด\n";
+      rawDataset.forEach(d => {
+        tsv += `${d.year}\t${d.district}\t${d.community}\t${d.patients}\n`;
+      });
+
+      navigator.clipboard.writeText(tsv).then(() => {
+        alert("✅ คัดลอกข้อมูลทั้งหมดเรียบร้อยแล้ว!\n\nคุณสามารถเปิด Google Sheet ของคุณ แล้วคลิกช่อง A1 จากนั้นกด Ctrl+V เพื่อวางข้อมูลทั้งหมดได้ทันทีครับ");
+        triggerConfetti();
+      }).catch(err => {
+        alert("ไม่สามารถคัดลอกลง Clipboard ได้ กรุณาใช้ปุ่มดาวน์โหลด CSV แทน");
+      });
+    }
+
+    // Save Back to Google Sheets (Apps Script Web App)
+    async function saveToGoogleSheets() {
+      const appsScriptUrl = localStorage.getItem(LS_KEY_APPS_SCRIPT_URL);
+      if (!appsScriptUrl) {
+        // Open modal on Write tab
+        openModal('write');
+        return;
+      }
+
+      const btn = document.getElementById('btnSaveToGoogleSheet');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> <span>กำลังบันทึก...</span>`;
+
+      try {
+        await fetch(appsScriptUrl, {
+          method: 'POST',
+          mode: 'no-cors', // Google Apps Script Web App redirects
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rawDataset)
+        });
+
+        alert("🎉 ส่งข้อมูลที่แก้ไขแล้วไปยัง Google Sheet สำเร็จเรียบร้อยแล้ว!");
+        triggerConfetti();
+      } catch (err) {
+        alert("ส่งข้อมูลไม่สำเร็จ กรุณาตรวจสอบ Google Apps Script Web App URL อีกครั้ง หรือใช้วิธี 'คัดลอกไปวางใน Sheet'");
+      } finally {
+        btn.innerHTML = originalHtml;
+        refreshIcons();
+      }
+    }
+
+    // Modal Control Functions
+    function openModal(defaultTab = 'read') {
+      const modal = document.getElementById('sheetModal');
+      const savedUrl = localStorage.getItem(LS_KEY_SHEET_URL) || '';
+      const savedAppsScript = localStorage.getItem(LS_KEY_APPS_SCRIPT_URL) || '';
+      
+      document.getElementById('inputSheetUrl').value = savedUrl;
+      document.getElementById('inputAppsScriptUrl').value = savedAppsScript;
+      document.getElementById('modalAlert').className = 'hidden';
+
+      switchModalTab(defaultTab);
+      modal.classList.remove('hidden');
+      refreshIcons();
+    }
+
+    function closeModal() {
+      document.getElementById('sheetModal').classList.add('hidden');
+    }
+
+    function switchModalTab(tabName) {
+      const btnRead = document.getElementById('tabBtnRead');
+      const btnWrite = document.getElementById('tabBtnWrite');
+      const contentRead = document.getElementById('tabContentRead');
+      const contentWrite = document.getElementById('tabContentWrite');
+
+      if (tabName === 'write') {
+        btnWrite.className = 'py-2.5 px-4 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5';
+        btnRead.className = 'py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5';
+        contentWrite.classList.remove('hidden');
+        contentRead.classList.add('hidden');
+      } else {
+        btnRead.className = 'py-2.5 px-4 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5';
+        btnWrite.className = 'py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5';
+        contentRead.classList.remove('hidden');
+        contentWrite.classList.add('hidden');
+      }
+      refreshIcons();
+    }
+
+    // Initialize App
+    function init() {
+      // 1. Theme Check
+      const savedTheme = localStorage.getItem(LS_KEY_THEME);
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('themeIcon').setAttribute('data-lucide', 'sun');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.getElementById('themeIcon').setAttribute('data-lucide', 'moon');
+      }
+
+      // 2. Load cached CSV or Fallback to embedded default data
+      let activeSheetUrl = localStorage.getItem(LS_KEY_SHEET_URL);
+      if (!activeSheetUrl) {
+        activeSheetUrl = DEFAULT_SHEET_URL;
+        localStorage.setItem(LS_KEY_SHEET_URL, DEFAULT_SHEET_URL);
+      }
+
+      const cachedCSV = localStorage.getItem(LS_KEY_CACHED_CSV);
+      const csvToLoad = cachedCSV || DEFAULT_CSV_DATA;
+      rawDataset = parseCSVData(csvToLoad);
+      filteredDataset = [...rawDataset];
+
+      // 3. Event Listeners
+      document.getElementById('yearFilter').addEventListener('change', applyFilters);
+      document.getElementById('districtSearch').addEventListener('input', applyFilters);
+      document.getElementById('sortFilter').addEventListener('change', applyFilters);
+      document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
+        pageSize = parseInt(e.target.value, 10);
+        currentPage = 1;
+        renderDataTable();
+        refreshIcons();
+      });
+
+      document.getElementById('btnResetFilters').addEventListener('click', () => {
+        document.getElementById('yearFilter').value = 'ALL';
+        document.getElementById('districtSearch').value = '';
+        document.getElementById('sortFilter').value = 'patients_desc';
+        applyFilters();
+      });
+
+      document.getElementById('btnExportCSV').addEventListener('click', exportToCSV);
+      document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+      // Edit Mode Toolbar Listeners
+      document.getElementById('btnToggleEditMode').addEventListener('click', toggleEditMode);
+      document.getElementById('btnAddRow').addEventListener('click', addNewRowData);
+      document.getElementById('btnSaveToGoogleSheet').addEventListener('click', saveToGoogleSheets);
+      document.getElementById('btnCopyForSheet').addEventListener('click', copyForGoogleSheet);
+
+      // Modal Tab Listeners
+      document.getElementById('tabBtnRead').addEventListener('click', () => switchModalTab('read'));
+      document.getElementById('tabBtnWrite').addEventListener('click', () => switchModalTab('write'));
+      document.getElementById('btnCopyScriptCode').addEventListener('click', () => {
+        const code = document.getElementById('scriptCodeBlock').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+          alert('คัดลอกโค้ด Google Apps Script แล้ว! นำไปวางใน Extensions > Apps Script ใน Google Sheet ได้เลย');
+        });
+      });
+
+      // Theme toggle
+      document.getElementById('themeToggle').addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem(LS_KEY_THEME, isDark ? 'dark' : 'light');
+        document.getElementById('themeIcon').setAttribute('data-lucide', isDark ? 'moon' : 'sun');
+        refreshIcons();
+        renderCharts();
+      });
+
+      // Modal Triggers
+      document.getElementById('btnOpenSheetModal').addEventListener('click', () => openModal('read'));
+      document.getElementById('btnOpenGuideModal').addEventListener('click', () => openModal('read'));
+      document.getElementById('btnCloseModal').addEventListener('click', closeModal);
+      document.getElementById('btnCancelModal').addEventListener('click', closeModal);
+
+      // Open Google Sheet Externally Button
+      document.getElementById('btnOpenExternalSheet').addEventListener('click', () => {
+        const savedUrl = localStorage.getItem(LS_KEY_SHEET_URL);
+        if (savedUrl) {
+          const editUrl = getGoogleSheetEditUrl(savedUrl);
+          window.open(editUrl, '_blank');
+        } else {
+          openModal('read');
+          alert('กรุณากรอกลิงก์ Google Sheet ของคุณก่อนครับ');
+        }
+      });
+
+      // Auto-Sync Setup (Live 8s Polling)
+      const autoSyncCheckbox = document.getElementById('autoSyncToggle');
+
+      function startAutoSync() {
+        if (autoSyncTimer) clearInterval(autoSyncTimer);
+        autoSyncTimer = setInterval(() => {
+          const currentUrl = localStorage.getItem(LS_KEY_SHEET_URL) || DEFAULT_SHEET_URL;
+          if (currentUrl) fetchGoogleSheetData(currentUrl, true);
+        }, 8000);
+      }
+
+      autoSyncCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          startAutoSync();
+          updateSyncStatusBadge(true, 'เปิดระบบซิงค์สดอัตโนมัติ (8 วิ) แล้ว');
+        } else {
+          if (autoSyncTimer) clearInterval(autoSyncTimer);
+          updateSyncStatusBadge(true, 'ปิด Auto-Sync ชั่วคราว');
+        }
+      });
+
+      // Start Auto-Sync by default
+      startAutoSync();
+
+      // Quick Sync Button
+      document.getElementById('btnQuickSync').addEventListener('click', async () => {
+        const savedUrl = localStorage.getItem(LS_KEY_SHEET_URL);
+        if (savedUrl) {
+          const success = await fetchGoogleSheetData(savedUrl);
+          if (success) {
+            applyFilters();
+          } else {
+            alert('ไม่สามารถดึงข้อมูลสดจาก Google Sheet ได้ กรุณาตรวจสอบลิงก์หรือการเผยแพร่ Publish to web');
+          }
+        } else {
+          openModal('read');
+        }
+      });
+
+      // Save & Fetch from Modal
+      document.getElementById('btnSaveAndFetch').addEventListener('click', async () => {
+        const urlInput = document.getElementById('inputSheetUrl').value.trim();
+        const appsScriptInput = document.getElementById('inputAppsScriptUrl').value.trim();
+        const rawInput = document.getElementById('rawCsvTextarea').value.trim();
+        const alertBox = document.getElementById('modalAlert');
+
+        if (appsScriptInput) {
+          localStorage.setItem(LS_KEY_APPS_SCRIPT_URL, appsScriptInput);
+        }
+
+        if (rawInput) {
+          rawDataset = parseCSVData(rawInput);
+          saveCurrentDatasetToCache();
+          closeModal();
+          applyFilters();
+          triggerConfetti();
+          return;
+        }
+
+        if (!urlInput && !appsScriptInput) {
+          alertBox.className = 'p-3 rounded-xl text-xs flex items-center space-x-2 bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300';
+          alertBox.textContent = 'กรุณาระบุ URL ของ Google Sheets หรือใส่ข้อมูล CSV';
+          return;
+        }
+
+        if (urlInput) {
+          alertBox.className = 'p-3 rounded-xl text-xs flex items-center space-x-2 bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300';
+          alertBox.textContent = 'กำลังทดสอบเชื่อมต่อและดึงข้อมูล...';
+
+          const success = await fetchGoogleSheetData(urlInput);
+          if (success) {
+            closeModal();
+            applyFilters();
+          } else {
+            alertBox.className = 'p-3 rounded-xl text-xs flex items-center space-x-2 bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300';
+            alertBox.textContent = 'เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบว่าเลือก Publish to Web เป็น CSV หรือไม่';
+          }
+        } else {
+          closeModal();
+          alert('บันทึกการตั้งค่าเรียบร้อยแล้ว!');
+        }
+      });
+
+      // Restore Defaults
+      document.getElementById('btnRestoreDefault').addEventListener('click', () => {
+        if (confirm('ต้องการคืนค่าข้อมูลตั้งต้น (ข้อมูลจังหวัดศรีสะเกษ 2565-2568) ใช่หรือไม่?')) {
+          localStorage.removeItem(LS_KEY_SHEET_URL);
+          localStorage.removeItem(LS_KEY_APPS_SCRIPT_URL);
+          localStorage.removeItem(LS_KEY_CACHED_CSV);
+          rawDataset = parseCSVData(DEFAULT_CSV_DATA);
+          closeModal();
+          applyFilters();
+          updateSyncStatusBadge(false, 'ข้อมูลตั้งต้น จ.ศรีสะเกษ');
+        }
+      });
+
+      // Initial Apply
+      applyFilters();
+      refreshIcons();
+
+      // Fetch live data directly from connected Google Sheet on startup
+      if (activeSheetUrl) {
+        fetchGoogleSheetData(activeSheetUrl, true);
+      }
+    }
+
+    // Run on load
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+
+  <!-- Live Update Toast Notification -->
+  <div id="liveSyncToast" class="fixed bottom-6 right-6 z-50 flex items-center space-x-3 px-4 py-3 rounded-2xl bg-emerald-600 text-white shadow-2xl shadow-emerald-500/30 transform translate-y-24 opacity-0 transition-all duration-500 pointer-events-none">
+    <div class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+      <i data-lucide="sparkles" class="w-4 h-4"></i>
+    </div>
+    <div>
+      <h4 class="text-xs font-bold flex items-center gap-1.5">
+        <span>Google Sheet อัปเดตสด!</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+      </h4>
+      <p class="text-[11px] text-emerald-100" id="toastMessage">ตรวจพบการแก้ไขใน Google Sheet และอัปเดตหน้าจอทันที</p>
+    </div>
+  </div>
+</body>
+</html>
